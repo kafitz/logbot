@@ -13,6 +13,7 @@ import time
 import threading
 # modules
 from modules import arduino
+from modules import craigslist
 from modules import transitfeeds
 from modules import waterlevels
 from modules import weather
@@ -24,49 +25,53 @@ if not cfg:
 
 R = RedisMessage()
 
-def log_results(messages):
+def log_file(messages):
     with open('status.txt', 'a') as log_f:
         for log_msg in messages:
-            log_f.write(log_msg + '\n') 
+            log_f.write(log_msg + '\n')
+
+def log_irc(messages):
+    if isinstance(messages, list):
+        for msg in messages:
+            R.send(msg)
+    elif isinstance(messages, basestring):
+        R.send(messages)
 
 ### recurring interval tasks
+def test_updates():
+    '''DEBUGGER'''
+    db = dataset.connect('sqlite:///records.sqlite')
+
 def fiveminute_updates():
     log_msgs = []
     now = datetime.now().replace(microsecond=0)
     db = dataset.connect('sqlite:///records.sqlite')
-    status_prefix = '{} - 5-minute update'.format(now)
+
+    # arduino
+    arduino_log, arduino_irc = arduino.last_reading(db, now)
+    log_msgs.append(arduino_log)
+    log_irc(arduino_irc)
 
     log_msgs.append('')
-    log_results(log_msgs)
+    log_file(log_msgs)
 
 def fifteenminute_updates():
     log_msgs = []    
     now = datetime.now().replace(microsecond=0)
     db = dataset.connect('sqlite:///records.sqlite')
-    status_prefix = '{} - 15-minute update'.format(now)
 
-    gardenbot_info = arduino.last_reading()
-    if gardenbot_info:
-        temp_c = gardenbot_info['tempC']
-        temp_f = '{:.2f}'.format(float(temp_c) * 1.8 + 32)
-        photo_level = gardenbot_info['photolvl']
-        R.send('{prefix}: {celsius}°C/{fahrenheit}°F | Light level: {light}'.format(
-            prefix=status_prefix, 
-            celsius=temp_c, 
-            fahrenheit=temp_f, 
-            light=photo_level)
-        )
+    # craigslist
+    craigslist_log, craigslist_irc = craigslist.search(db)
+    log_msgs.append(craigslist_log)
+    log_irc(craigslist_irc)
 
-        db['gardenbot'].insert({'timestamp': now, 'tempC': temp_c, 'photoLvl': photo_level})
-    else:
-        R.send('{prefix}: No gardenbot data available'.format(prefix=status_prefix))
-
-    R.send('{prefix}: Checking weather...'.format(prefix=status_prefix))
-    weather_msg = weather.current(db)
-    log_msgs.extend(weather_msg)
+    # weather
+    log_irc('{now}: Checking weather...'.format(now=now))
+    weather_log = weather.current(db)
+    log_msgs.extend(weather_log)
 
     log_msgs.append('')
-    log_results(log_msgs)    
+    log_file(log_msgs)    
 
 def halfday_updates():
     log_msgs = []
@@ -74,41 +79,39 @@ def halfday_updates():
     db = dataset.connect('sqlite:///records.sqlite')
     status_prefix = '{} - 1-day update'.format(now)
 
-    R.send('{}: Checking for new GTFS files...'.format(status_prefix))
-    gtfs_msgs, email_msg = transitfeeds.check_for_gtfs(cfg, db)
-    log_msgs.extend(gtfs_msgs)
-    if email_msg:
-        R.send('{}: Emailing about GTFS update...'.format(now))
-        mailer.send(cfg, email_msg)
+    log_irc('{}: Checking for new GTFS files...'.format(status_prefix))
+    gtfs_log, gtfs_email = transitfeeds.check_for_gtfs(cfg, db)
+    log_msgs.extend(gtfs_log)
+    if gtfs_email:
+        log_irc('{}: Emailing about GTFS update...'.format(now))
+        mailer.send(cfg, gtfs_email)
 
     log_msgs.append('')
-    log_results(log_msgs)
+    log_file(log_msgs)
 
 #### specially scheduled tasks
 def waterlevel_update():
     db = dataset.connect('sqlite:///records.sqlite')
     now = datetime.now().replace(microsecond=0)
     status = '{} - Scheduled water levels update'.format(now)
-    R.send(status)
+    log_irc(status)
     tides = waterlevels.update()
-    # first run
     if not 'tides' in db:
         db['tides'].insert_many(tides)
     else:
         for row in tides:
             db['tides'].upsert(row, ['date'])
 
-
 def run_threaded(job):
     t = threading.Thread(target=job)
     t.start()
-
 
 def main():
     # initialize garduino watcher
     arduino.run()
 
     ## schedule waits so do first run immediately
+    # schedule.every(15).seconds.do(run_threaded, test_updates) # debugger
     schedule.every(5).minutes.do(run_threaded, fiveminute_updates)
     schedule.every(15).minutes.do(run_threaded, fifteenminute_updates)
     schedule.every(12).hours.do(run_threaded, halfday_updates)

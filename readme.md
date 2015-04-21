@@ -18,7 +18,7 @@ Most modules in logbot both publish to redis and write data to an sqlite databas
 * arduino: Receives serial messages from an arduino plugged in by USB
 * transitfeeds: Checks [api.transitfeeds.com](http://transitfeeds.com) for a new version of GTFS data and emails the address set in the config file if an update is found
 * waterlevels: Checks [tides.gc.ca](http://tides.gc.ca/) once a day for river/tidal heights for a location (hardcoded in url) the past 24 hours
-* weather: Fetchs the current conditions from [api.openweathermap.org](http://openweathermap.org)
+* weather: Fetches the current conditions from [api.openweathermap.org](http://openweathermap.org)
 
 #### Notes
 Logbot currently uses the [dataset](https://dataset.readthedocs.org/en/latest/) wrapper which handy but slow to start on a Raspberry Pi (relies on sqlalchemy).

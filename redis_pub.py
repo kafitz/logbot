@@ -13,5 +13,5 @@ class RedisMessage():
             'channel': self.irc_channel,
             'text': message
         }
-        print("Sending message: {}".format(message))
+        print("Sending message: {}".format(msg))
         self.r.publish(self.redis_channel, json.dumps(msg))
