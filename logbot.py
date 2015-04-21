@@ -6,7 +6,6 @@ import dataset
 from datetime import datetime
 import mailer
 from redis_pub import RedisMessage
-import requests
 import schedule
 import sys
 import time
@@ -47,11 +46,6 @@ def fiveminute_updates():
     now = datetime.now().replace(microsecond=0)
     db = dataset.connect('sqlite:///records.sqlite')
 
-    # arduino
-    arduino_log, arduino_irc = arduino.last_reading(db, now)
-    log_msgs.append(arduino_log)
-    log_irc(arduino_irc)
-
     log_msgs.append('')
     log_file(log_msgs)
 
@@ -60,15 +54,20 @@ def fifteenminute_updates():
     now = datetime.now().replace(microsecond=0)
     db = dataset.connect('sqlite:///records.sqlite')
 
+    # arduino
+    arduino_log, arduino_irc = arduino.last_reading(db, now)
+    log_msgs.append(arduino_log)
+    log_irc(arduino_irc)
+
     # craigslist
-    craigslist_log, craigslist_irc = craigslist.search(db)
+    craigslist_log, craigslist_irc = craigslist.search(db, now)
     log_msgs.append(craigslist_log)
     log_irc(craigslist_irc)
 
     # weather
-    log_irc('{now}: Checking weather...'.format(now=now))
-    weather_log = weather.current(db)
-    log_msgs.extend(weather_log)
+    weather_log, weather_irc = weather.current(db)
+    log_msgs.append(weather_log)
+    log_irc(weather_irc)
 
     log_msgs.append('')
     log_file(log_msgs)    
@@ -77,13 +76,12 @@ def halfday_updates():
     log_msgs = []
     now = datetime.now().replace(microsecond=0)
     db = dataset.connect('sqlite:///records.sqlite')
-    status_prefix = '{} - 1-day update'.format(now)
 
-    log_irc('{}: Checking for new GTFS files...'.format(status_prefix))
+    log_irc('{now}--Checking for new GTFS files'.format(now=now))
     gtfs_log, gtfs_email = transitfeeds.check_for_gtfs(cfg, db)
     log_msgs.extend(gtfs_log)
     if gtfs_email:
-        log_irc('{}: Emailing about GTFS update...'.format(now))
+        log_irc('{now}--Emailing about GTFS update'.format(now=now))
         mailer.send(cfg, gtfs_email)
 
     log_msgs.append('')
@@ -91,16 +89,16 @@ def halfday_updates():
 
 #### specially scheduled tasks
 def waterlevel_update():
+    log_msgs = []
     db = dataset.connect('sqlite:///records.sqlite')
     now = datetime.now().replace(microsecond=0)
-    status = '{} - Scheduled water levels update'.format(now)
-    log_irc(status)
-    tides = waterlevels.update()
-    if not 'tides' in db:
-        db['tides'].insert_many(tides)
-    else:
-        for row in tides:
-            db['tides'].upsert(row, ['date'])
+    tides_log, tides_irc = waterlevels.update(db, now)
+    log_msgs.append(tides_log)
+    log_irc(tides_irc)
+
+    log_msgs.append('')
+    log_file(log_msgs)
+
 
 def run_threaded(job):
     t = threading.Thread(target=job)
@@ -112,7 +110,7 @@ def main():
 
     ## schedule waits so do first run immediately
     # schedule.every(15).seconds.do(run_threaded, test_updates) # debugger
-    schedule.every(5).minutes.do(run_threaded, fiveminute_updates)
+    # schedule.every(5).minutes.do(run_threaded, fiveminute_updates)
     schedule.every(15).minutes.do(run_threaded, fifteenminute_updates)
     schedule.every(12).hours.do(run_threaded, halfday_updates)
     schedule.run_all()    

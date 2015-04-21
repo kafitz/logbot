@@ -39,7 +39,7 @@ def posts(parameters):
         posts.append(post)
     return posts
 
-def search(db):
+def search(db, now):
     parameters = {
         'base_url': 'http://montreal.en.craigslist.ca',
         'search_url': '/search/bia',
@@ -62,28 +62,31 @@ def search(db):
     # file output log message
     min_ask = parameters['minAsk'] or 0
     max_ask = parameters['maxAsk'] or 'inf'
-    log_message = 'Craigslist | {url} | ${min}-{max}'.format(
+    log_msg = '{now}--Craigslist | {url} | ${min}-{max}'.format(
+        now=now,
         url=parameters['search_url'], 
         min=min_ask,
         max=max_ask
         )
     if parameters['query']:
-        log_message += ' | {}: '
+        log_msg += ' | {}: '
     else:
-        log_message += ': '
-    log_message += '{} new results'.format(len(new_results))
+        log_msg += ': '
+    log_msg += '{{num} new results'.format(num=len(new_results))
 
-    irc_messages = []
+    irc_msgs = []
     for post in new_results:
-        msg = 'Craigslist: {text} ({time}) - {url}'.format(
-            text=post['text'],
+        print(post)
+        msg = '{now}--Craigslist: {text} ({time}) - {url}'.format(
+            now=now,
+            text=post['text'].encode('utf-8'),
             time=post['timestamp'],
             url=post['url']
         )
-        irc_messages.append(msg)
-    else: 
-        irc_messages = log_message
+        irc_msgs.append(msg)
+    if not irc_msgs:
+        irc_msgs = log_msg
 
-    return log_message, irc_messages
+    return log_msg, irc_msgs
 
 

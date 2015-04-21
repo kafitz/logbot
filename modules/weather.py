@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Kyle Fitzsimmons, 2015
 from datetime import datetime
 import requests
@@ -19,14 +20,21 @@ def current(db):
             'time': now,
             'temperature_c': celsius,
             'temperature_f': fahrenheit,
-            'humidity' : data['main']['humidity'],
+            'humidity': data['main']['humidity'],
             'sunrise': data['sys']['sunrise'],
             'sunset': data['sys']['sunset'],
             'cloud_cover': data['clouds']['all'],
         } 
         
         db['weather'].insert(weather_entry)
-        log_msg = '{} -- weather update successful'.format(now)
+        log_msg = '{now}--Weather: {c:.1f}°C/{f:.1f}°F, RH: {rh}, Cloud cover: {cc}%'.format(
+            now=now,
+            c=celsius,
+            f=fahrenheit,
+            rh=data['main']['humidity'],
+            cc=data['clouds']['all']
+            )
     except Exception, e:
-        log_msg = '{} -- weather update failed: {}'.format(now, e)
-    return [log_msg]
+        log_msg = '{}--weather update failed: {}'.format(now, e)
+    irc_msg = log_msg
+    return log_msg,irc_msg

@@ -34,12 +34,12 @@ def run():
 def last_reading(db, now):
     global data
     if 'error' in data:
-        log_msg = ('{now}: No gardenbot data available'.format(now=now))
+        log_msg = ('{now}--Gardenbot: No connection'.format(now=now))
     elif data:
         temp_c = data['tempC']
         temp_f = '{:.2f}'.format(float(temp_c) * 1.8 + 32)
         photo_level = data['photolvl']
-        log_msg = '{now}: {celsius}°C/{fahrenheit}°F | Light level: {light}'.format(
+        log_msg = '{now}--Gardenbot: {celsius}°C/{fahrenheit}°F | Light level: {light}'.format(
             now=now, 
             celsius=temp_c, 
             fahrenheit=temp_f, 
@@ -47,7 +47,7 @@ def last_reading(db, now):
             )
         db['gardenbot'].insert({'timestamp': now, 'tempC': temp_c, 'photoLvl': photo_level})
     else:
-        log_msg = '{now}: Arduino module failed'
+        log_msg = '{now}--Gardenbot: No data available yet'.format(now=now)
     irc_msg = log_msg
     return log_msg, irc_msg
 

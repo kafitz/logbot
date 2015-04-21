@@ -16,8 +16,9 @@ to scheduling many python scripts via cronjobs and to be able to be run portably
 #### Modules
 Most modules in logbot both publish to redis and write data to an sqlite database for presistence. Logbot's modules include:
 * arduino: Receives serial messages from an arduino plugged in by USB
+* craigslist: Crawls first page of a craigslist search and notifies of new posts
 * transitfeeds: Checks [api.transitfeeds.com](http://transitfeeds.com) for a new version of GTFS data and emails the address set in the config file if an update is found
-* waterlevels: Checks [tides.gc.ca](http://tides.gc.ca/) once a day for river/tidal heights for a location (hardcoded in url) the past 24 hours
+* waterlevels: Checks [tides.gc.ca](http://tides.gc.ca/) once a day for river/tidal heights for a location (hardcoded in url) over the past 24 hours
 * weather: Fetches the current conditions from [api.openweathermap.org](http://openweathermap.org)
 
 #### Notes

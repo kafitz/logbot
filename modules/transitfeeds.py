@@ -37,11 +37,11 @@ def check_for_gtfs(config, db):
 
                 msg += '{}: {}\n'.format(shorthand, latest_release > last_known_gtfs)
                 db['gtfs'].upsert(latest_release, ['agency'])
-                log_msgs.append('{} -- {} gtfs check successful'.format(now, shorthand))
+                log_msgs.append('{}--{} gtfs check successful'.format(now, shorthand))
             else:
-                log_msgs.append('{} -- {} gtfs check: no results found'.format(now, shorthand))
+                log_msgs.append('{}--{} gtfs check: no results found'.format(now, shorthand))
         except Exception, e:
-            log_msgs.append('{} -- gtfs check failed: {}'.format(now, e))
+            log_msgs.append('{}--gtfs check failed: {}'.format(now, e))
 
     email_msg = None
     if send_email:

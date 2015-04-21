@@ -4,7 +4,6 @@ import requests
 import lxml.html
 
 csvdir = './modules/waterlevels'
-url =    'http://www.tides.gc.ca/eng/station?type=1&sid=15540&tz=EDT&pres=2'
 
 def write_csv(output_data):
     csv_filename = '{dir}/{date}.csv'.format(dir=csvdir, date=datetime.now().strftime('%Y%m%d'))
@@ -12,7 +11,8 @@ def write_csv(output_data):
         writer = csv.writer(csv_out)
         writer.writerows(output_data)
 
-def update():
+def update(db, now):
+    url = 'http://www.tides.gc.ca/eng/station?type=1&sid=15540&tz=EDT&pres=2'
     r = requests.get(url)
 
     output_data = []
@@ -31,10 +31,26 @@ def update():
             for child in div.getchildren():
                 output_data.append(child.text.strip().encode('utf-8').split(';'))
 
-    write_csv(output_data)
+        write_csv(output_data)
 
-    # consume first 3 rows (junk)
-    output_data = output_data[3:]
-    headers = [h.lower() for h in output_data.pop(0)]
-    db_data = [dict(zip(headers, row)) for row in output_data]
-    return db_data
+        # consume first 3 rows (junk)
+        output_data = output_data[3:]
+        headers = [h.lower() for h in output_data.pop(0)]
+        db_data = [dict(zip(headers, row)) for row in output_data]
+
+        if not 'tides' in db:
+            db['tides'].insert_many(db_data)
+        else:
+            for row in db_data:
+                db['tides'].upsert(row, ['date'])
+
+        log_msg = '{now}--Updated water levels data from {url}'.format(
+            now=now,
+            url=url)
+    else:
+        log_msg = '{now}--Unable to fetch water levels from {url}'.format(
+            now=now,
+            url=url
+            )
+    irc_msg = log_msg
+    return log_msg, irc_msg
