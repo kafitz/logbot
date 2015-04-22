@@ -1,25 +1,19 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Kyle Fitzsimmons, 2015
-from datetime import datetime
-import dataset
 import requests
 from lxml import html
-
-db = dataset.connect('sqlite:///../records.sqlite')
-if not 'craigslist' in db.tables:
-    db.create_table('craigslist', primary_id='id')
 
 def xpath_findone(tree, query):
     '''A get function to return either the first result
         or None if the xpath query fails to find an element'''
     try:
-        (element,) = tree.xpath(query)
-    except ValueError:
+        element = tree.xpath(query)[0]
+    except IndexError:
         return None
     return element
 
-def posts(parameters):
-    scrape_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+def posts(parameters, now):
     base_url, search_url = parameters['base_url'], parameters['search_url']
     del parameters['base_url']
     del parameters['search_url']
@@ -28,7 +22,7 @@ def posts(parameters):
     rows = tree.xpath('//p[@class="row"]')
     posts = []
     for row in rows:
-        post = {'scrape_time': scrape_time}
+        post = {'scrape_time': now}
         url = xpath_findone(row, 'a/@href')
         post['url'] = base_url + url
         subrow = xpath_findone(row, './/span[@class="pl"]')
@@ -36,6 +30,10 @@ def posts(parameters):
         post['timestamp'] = xpath_findone(subrow, 'time/@datetime')
         post['text'] = xpath_findone(subrow, 'a/text()')
         post['repost_id'] = xpath_findone(subrow, 'a/@data-repost-of') # check for a repost id
+        price = xpath_findone(row, './/span[@class="price"]/text()')
+        if price:
+            price = int(price.replace('$', ''))
+        post['price'] = price
         posts.append(post)
     return posts
 
@@ -48,16 +46,16 @@ def search(db, now):
         'maxAsk': 600,
         'sort': 'rel'
     }
-    results = posts(parameters.copy())
+    results = posts(parameters.copy(), now)
 
     # update database and determine which posts are new to report
     new_results = []
     for post in results:
-        if not db['craigslist'].find_one(id=post['id']):
+        if not db.find_one('craigslist', id=post['id']):
             new_results.append(post)
-            db['craigslist'].insert(post)
+            db.insert('craigslist', post)
         else:
-            db['craigslist'].upsert(post, ['id'])
+            db.upsert('craigslist', post, ['id'])
 
     # file output log message
     min_ask = parameters['minAsk'] or 0
@@ -72,21 +70,32 @@ def search(db, now):
         log_msg += ' | {}: '
     else:
         log_msg += ': '
-    log_msg += '{{num} new results'.format(num=len(new_results))
+    log_msg += '{num} new results'.format(num=len(new_results))
 
+    # irc output messages
     irc_msgs = []
     for post in new_results:
         print(post)
-        msg = '{now}--Craigslist: {text} ({time}) - {url}'.format(
+        msg = '{now}--Craigslist: ${price}-{text} ({time}) - {url}'.format(
             now=now,
+            price=post['price'],
             text=post['text'].encode('utf-8'),
             time=post['timestamp'],
             url=post['url']
         )
         irc_msgs.append(msg)
     if not irc_msgs:
-        irc_msgs = log_msg
+        irc_msgs = [log_msg]
 
     return log_msg, irc_msgs
 
+
+if __name__ == '__main__':
+    from databaser import Database
+    from datetime import datetime
+    db = Database('./test.sqlite')
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    log_msg, irc_msgs = search(db, now)
+    for msg in irc_msgs:
+        print(msg)
 

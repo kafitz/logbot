@@ -4,8 +4,9 @@ from bunch import bunchify
 import os
 import yaml
 
-def load():
-    conf_file = 'settings.yaml'
+def load(conf_file=None):
+    if not conf_file:
+        conf_file = 'settings.yaml'
     if os.path.exists(conf_file):
         with open(conf_file, 'r') as conf_f:
             # load yaml settings to an object

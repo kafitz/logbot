@@ -1,9 +1,10 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Kyle Fitzsimmons, 2015
 from datetime import datetime
 import requests
 
-def check_for_gtfs(config, db):
+def check_for_gtfs(db, config):
     log_msgs = []
     agencies = {
         'stm': 'societe-de-transport-de-montreal/39',
@@ -31,12 +32,12 @@ def check_for_gtfs(config, db):
                     'date': latest_dt
                 }
 
-                last_known_gtfs = db['gtfs'].find_one(agency=shorthand)
+                last_known_gtfs = db.find_one('gtfs', agency=shorthand)
                 if latest_release > last_known_gtfs:
                     send_email = True
 
                 msg += '{}: {}\n'.format(shorthand, latest_release > last_known_gtfs)
-                db['gtfs'].upsert(latest_release, ['agency'])
+                db.upsert('gtfs', latest_release, ['agency'])
                 log_msgs.append('{}--{} gtfs check successful'.format(now, shorthand))
             else:
                 log_msgs.append('{}--{} gtfs check: no results found'.format(now, shorthand))
@@ -50,3 +51,15 @@ def check_for_gtfs(config, db):
             'body': msg
         }
     return log_msgs, email_msg
+
+if __name__ == '__main__':
+    from databaser import Database
+    import sys
+    sys.path.append('../')
+    import config
+    from pprint import pprint
+    db = Database('./test.sqlite')
+    cfg = config.load('../settings.yaml')
+    log_msgs, email_msg = check_for_gtfs(db, cfg)
+    pprint(log_msgs)
+

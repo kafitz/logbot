@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Kyle Fitzsimmons, 2015
 import config
-import dataset
+from databaser import Database
 from datetime import datetime
 import mailer
 from redis_pub import RedisMessage
@@ -17,6 +17,7 @@ from modules import transitfeeds
 from modules import waterlevels
 from modules import weather
 
+dbfile = './records.sqlite'
 cfg = config.load()
 if not cfg:
     print('No previous settings.yaml found, first edit the default in logbot folder.')
@@ -44,15 +45,16 @@ def test_updates():
 def fiveminute_updates():
     log_msgs = []
     now = datetime.now().replace(microsecond=0)
-    db = dataset.connect('sqlite:///records.sqlite')
+    db = Database(dbfile)
 
     log_msgs.append('')
     log_file(log_msgs)
+    db.close()
 
 def fifteenminute_updates():
     log_msgs = []    
     now = datetime.now().replace(microsecond=0)
-    db = dataset.connect('sqlite:///records.sqlite')
+    db = Database(dbfile)
 
     # arduino
     arduino_log, arduino_irc = arduino.last_reading(db, now)
@@ -70,15 +72,16 @@ def fifteenminute_updates():
     log_irc(weather_irc)
 
     log_msgs.append('')
-    log_file(log_msgs)    
+    log_file(log_msgs)
+    db.close()
 
 def halfday_updates():
     log_msgs = []
     now = datetime.now().replace(microsecond=0)
-    db = dataset.connect('sqlite:///records.sqlite')
+    db = Database(dbfile)
 
     log_irc('{now}--Checking for new GTFS files'.format(now=now))
-    gtfs_log, gtfs_email = transitfeeds.check_for_gtfs(cfg, db)
+    gtfs_log, gtfs_email = transitfeeds.check_for_gtfs(db, cfg)
     log_msgs.extend(gtfs_log)
     if gtfs_email:
         log_irc('{now}--Emailing about GTFS update'.format(now=now))
@@ -86,11 +89,12 @@ def halfday_updates():
 
     log_msgs.append('')
     log_file(log_msgs)
+    db.close()
 
 #### specially scheduled tasks
 def waterlevel_update():
     log_msgs = []
-    db = dataset.connect('sqlite:///records.sqlite')
+    db = Database(dbfile)
     now = datetime.now().replace(microsecond=0)
     tides_log, tides_irc = waterlevels.update(db, now)
     log_msgs.append(tides_log)
@@ -98,6 +102,7 @@ def waterlevel_update():
 
     log_msgs.append('')
     log_file(log_msgs)
+    db.close()
 
 
 def run_threaded(job):

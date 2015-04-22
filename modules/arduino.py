@@ -45,7 +45,7 @@ def last_reading(db, now):
             fahrenheit=temp_f, 
             light=photo_level
             )
-        db['gardenbot'].insert({'timestamp': now, 'tempC': temp_c, 'photoLvl': photo_level})
+        db.insert('gardenbot', {'timestamp': now, 'tempC': temp_c, 'photoLvl': photo_level})
     else:
         log_msg = '{now}--Gardenbot: No data available yet'.format(now=now)
     irc_msg = log_msg

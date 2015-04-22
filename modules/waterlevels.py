@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Kyle Fitzsimmons, 2015
 import csv
 from datetime import datetime
 import requests
@@ -38,11 +41,8 @@ def update(db, now):
         headers = [h.lower() for h in output_data.pop(0)]
         db_data = [dict(zip(headers, row)) for row in output_data]
 
-        if not 'tides' in db:
-            db['tides'].insert_many(db_data)
-        else:
-            for row in db_data:
-                db['tides'].upsert(row, ['date'])
+        for row in db_data:
+            db.upsert('tides', row, ['date', 'time'])
 
         log_msg = '{now}--Updated water levels data from {url}'.format(
             now=now,
@@ -54,3 +54,13 @@ def update(db, now):
             )
     irc_msg = log_msg
     return log_msg, irc_msg
+
+if __name__ == '__main__':
+    from databaser import Database
+    from datetime import datetime
+    db = Database('./test.sqlite')
+    now = datetime.now().replace(microsecond=0)
+    update(db, now)
+
+
+
